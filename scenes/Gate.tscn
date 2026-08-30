@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/Gate.gd" id="1_gate"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_gate"]
-size = Vector3(4.0, 3.5, 1.0)
+size = Vector3(3.5, 3.2, 0.5)
 
 [node name="Gate" type="Area3D"]
 collision_layer = 16
@@ -11,11 +11,14 @@ collision_mask = 1
 script = ExtResource("1_gate")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 shape = SubResource("BoxShape3D_gate")
 
+[node name="FrameMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
 [node name="Label3D" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0.18)
 billboard = 1
-font_size = 48
+font_size = 46
 outline_size = 12

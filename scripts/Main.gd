@@ -64,11 +64,13 @@ func _ready() -> void:
 	if ui_layer:
 		ui_layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	if game_world:
-		game_world.process_mode = Node.PROCESS_MODE_PAUSABLE # ポーズ時に完全に静止
+		game_world.process_mode = Node.PROCESS_MODE_PAUSABLE
 		
 	randomize()
+	Gate.init_cache() # ゲートのマテリアル・メッシュを事前初期化
 	_setup_environment_and_bridge()
 	_setup_ui()
+	_warmup_assets() # 初回シェーダーコンパイルによるフリーズを防止
 	
 	if player:
 		player.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -77,6 +79,34 @@ func _ready() -> void:
 		_update_player_stats_ui(player.squad_size, player.fire_rate, player.damage_multiplier)
 		
 	_show_title_screen()
+
+## 初回スポーン時のシェーダースタッター（一瞬のフリーズ）を完全に排除するウォームアップ
+func _warmup_assets() -> void:
+	if not game_world:
+		return
+		
+	# 画面外に見えないようにダミーインスタンスを生成してGPUに事前コンパイルさせる
+	var warmup_root = Node3D.new()
+	warmup_root.position = Vector3(0, -200, 0)
+	game_world.add_child(warmup_root)
+	
+	if gate_scene:
+		var dummy_gate = gate_scene.instantiate() as Gate
+		warmup_root.add_child(dummy_gate)
+		dummy_gate.set_gate_data(Gate.GateType.SOLDIER_ADD, 3)
+	if enemy_scene:
+		var dummy_enemy = enemy_scene.instantiate() as Enemy
+		warmup_root.add_child(dummy_enemy)
+	if boss_scene:
+		var dummy_boss = boss_scene.instantiate() as Boss
+		warmup_root.add_child(dummy_boss)
+		
+	# 1フレーム後に安全に解放
+	var timer = get_tree().create_timer(0.1, false)
+	timer.timeout.connect(func():
+		if is_instance_valid(warmup_root):
+			warmup_root.queue_free()
+	)
 
 func _setup_environment_and_bridge() -> void:
 	var bridge_root = Node3D.new()
