@@ -2,16 +2,50 @@
 .godot/
 .nomedia
 
-# Godot-specific ignores
+# Godot import cache & credentials
 .import/
 export.cfg
 export_credentials.cfg
 *.tmp
+*.log
 
-# Imported translations (automatically generated from CSV files)
+# Imported translations
 *.translation
 
-# Mono-specific ignores
+# Mono / C# specific
 .mono/
 data_*/
 mono_crash.*.json
+
+# Android Build, Gradle & Packaging
+android/build/
+.gradle/
+*.apk
+*.idsig
+*.aab
+*.pck
+
+# Keystores & Security
+*.keystore
+*.jks
+
+# Export Binaries & Archives
+*.exe
+*.zip
+*.tar.gz
+*.dmg
+*.app
+build/
+bin/
+export/
+
+# OS / System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*~

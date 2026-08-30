@@ -1,0 +1,216 @@
+[gd_scene load_steps=6 format=3 uid="uid://mainscene01admilitary"]
+
+[ext_resource type="Script" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="2_player"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
+sky_top_color = Color(0.05, 0.08, 0.15, 1)
+sky_horizon_color = Color(0.08, 0.12, 0.22, 1)
+ground_bottom_color = Color(0.02, 0.03, 0.06, 1)
+ground_horizon_color = Color(0.08, 0.12, 0.22, 1)
+
+[sub_resource type="Sky" id="Sky_env"]
+sky_material = SubResource("ProceduralSkyMaterial_sky")
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 2
+sky = SubResource("Sky_env")
+ambient_light_source = 3
+ambient_light_color = Color(0.45, 0.55, 0.75, 1)
+ambient_light_energy = 0.7
+tonemap_mode = 2
+glow_enabled = true
+glow_bloom = 0.3
+fog_enabled = true
+fog_light_color = Color(0.08, 0.12, 0.22, 1)
+fog_density = 0.012
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.965926, -0.183013, 0.183013, 0, 0.707107, 0.707107, -0.258819, -0.683013, 0.683013, 5, 18, 10)
+light_color = Color(0.9, 0.95, 1, 1)
+light_energy = 1.3
+shadow_enabled = true
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.913545, 0.406737, 0, -0.406737, 0.913545, 0, 8.5, 16.5)
+keep_aspect = 1
+current = true
+fov = 48.0
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="WaveLabel" type="Label" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 28.0
+offset_right = 200.0
+offset_bottom = 72.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 28
+text = "WAVE 1 / 4"
+horizontal_alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="UI/HUD"]
+layout_mode = 1
+offset_left = 28.0
+offset_top = 80.0
+offset_right = 320.0
+offset_bottom = 118.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 24
+text = "SCORE: 0"
+
+[node name="SquadLabel" type="Label" parent="UI/HUD"]
+layout_mode = 1
+offset_left = 28.0
+offset_top = 118.0
+offset_right = 360.0
+offset_bottom = 152.0
+theme_override_colors/font_color = Color(0.2, 0.8, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 20
+text = "SQUAD: 1 SOLDIERS"
+
+[node name="StatsLabel" type="Label" parent="UI/HUD"]
+layout_mode = 1
+offset_left = 28.0
+offset_top = 152.0
+offset_right = 400.0
+offset_bottom = 180.0
+theme_override_colors/font_color = Color(0.7, 0.85, 1, 0.8)
+theme_override_font_sizes/font_size = 16
+text = "ROF: 4.0/s | DMG: x1.0"
+
+[node name="ControlsGuide" type="Label" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -60.0
+offset_right = 300.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.6, 0.75, 0.9, 0.8)
+theme_override_font_sizes/font_size = 16
+text = "[MOVE: Left Stick / D-Pad / A,D]  [AUTO SHOOT]"
+horizontal_alignment = 1
+
+[node name="GameOverPanel" type="Panel" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/GameOverPanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -180.0
+offset_right = 300.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Title" type="Label" parent="UI/GameOverPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 36
+text = "DEFENSE BREACHED"
+horizontal_alignment = 1
+
+[node name="FinalScore" type="Label" parent="UI/GameOverPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "FINAL SCORE: 0"
+horizontal_alignment = 1
+
+[node name="RetryGuide" type="Label" parent="UI/GameOverPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "Press [A Button] or [SPACE] to Restart"
+horizontal_alignment = 1
+
+[node name="VictoryPanel" type="Panel" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/VictoryPanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -180.0
+offset_right = 300.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Title" type="Label" parent="UI/VictoryPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 1, 0.4, 1)
+theme_override_font_sizes/font_size = 34
+text = "MISSION ACCOMPLISHED"
+horizontal_alignment = 1
+
+[node name="FinalScore" type="Label" parent="UI/VictoryPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "CLEAR SCORE: 0"
+horizontal_alignment = 1
+
+[node name="RetryGuide" type="Label" parent="UI/VictoryPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "Press [A Button] or [SPACE] to Play Again"
+horizontal_alignment = 1
