@@ -12,11 +12,13 @@ signal squad_updated(new_size: int, fire_rate: float, damage_mult: float)
 @export var min_x: float = -3.2
 @export var max_x: float = 3.2
 
-# 戦闘ステータス
+# 小隊上限＆戦闘ステータス（軽量化＆一発の高威力化）
+@export var max_squad_size: int = 8      # 小隊上限を8人に制限（画面負荷を大幅軽減）
 @export var squad_size: int = 1
-@export var base_damage: float = 12.0
+@export var base_damage: float = 38.0    # 1発の攻撃力を約3倍に強化
 @export var damage_multiplier: float = 1.0
-@export var fire_rate: float = 4.0
+@export var fire_rate: float = 2.2       # 弾数を抑えた重厚な連射速度 (2.2発/秒)
+@export var max_fire_rate: float = 5.2   # 発射レート上限
 
 var bullet_scene: PackedScene = preload("res://scenes/Bullet.tscn")
 
@@ -33,7 +35,6 @@ var gun_mat: StandardMaterial3D
 var glow_cyan_mat: StandardMaterial3D
 
 func _ready() -> void:
-	# Layer 1 (Player), Mask: Layer 2 (Enemy) | 16 (Gate)
 	collision_layer = 1
 	collision_mask = 2 | 16
 	
@@ -41,7 +42,6 @@ func _ready() -> void:
 	_rebuild_squad()
 
 func _init_materials() -> void:
-	# プロシージャルミリタリー迷彩テクスチャをコード生成
 	var camo_texture = _generate_camo_texture()
 	
 	camo_armor_mat = StandardMaterial3D.new()
@@ -51,7 +51,7 @@ func _init_materials() -> void:
 	camo_armor_mat.roughness = 0.65
 	
 	suit_mat = StandardMaterial3D.new()
-	suit_mat.albedo_color = Color(0.12, 0.16, 0.14) # オリーブドラブ調のダークインナースーツ
+	suit_mat.albedo_color = Color(0.12, 0.16, 0.14)
 	suit_mat.roughness = 0.8
 	
 	visor_mat = StandardMaterial3D.new()
@@ -67,11 +67,10 @@ func _init_materials() -> void:
 	glow_cyan_mat.emission_energy_multiplier = 2.0
 	
 	gun_mat = StandardMaterial3D.new()
-	gun_mat.albedo_color = Color(0.18, 0.20, 0.22) # タクティカルガンメタル
+	gun_mat.albedo_color = Color(0.18, 0.20, 0.22)
 	gun_mat.metallic = 0.75
 	gun_mat.roughness = 0.35
 
-## ミリタリー迷彩（カモフラージュパターン）テクスチャの動的生成
 func _generate_camo_texture() -> ImageTexture:
 	var width = 128
 	var height = 128
@@ -83,7 +82,6 @@ func _generate_camo_texture() -> ImageTexture:
 	noise.cellular_distance_function = FastNoiseLite.DISTANCE_HYBRID
 	noise.cellular_return_type = FastNoiseLite.RETURN_CELL_VALUE
 	
-	# ミリタリーアーミー・ネイビー迷彩パレット
 	var col_dark_green = Color(0.15, 0.28, 0.18)
 	var col_olive = Color(0.28, 0.42, 0.24)
 	var col_tan = Color(0.48, 0.45, 0.32)
@@ -91,7 +89,7 @@ func _generate_camo_texture() -> ImageTexture:
 	
 	for y in range(height):
 		for x in range(width):
-			var val = (noise.get_noise_2d(float(x), float(y)) + 1.0) * 0.5 # 0.0 ~ 1.0
+			var val = (noise.get_noise_2d(float(x), float(y)) + 1.0) * 0.5
 			var pixel_color: Color
 			if val < 0.28:
 				pixel_color = col_dark_green
@@ -140,7 +138,7 @@ func _animate_squad(input_x: float) -> void:
 	for i in range(soldier_mesh_instances.size()):
 		var soldier = soldier_mesh_instances[i]
 		if is_instance_valid(soldier):
-			var bounce = sin(walk_anim_timer + (i * 0.5)) * 0.04
+			var bounce = sin(walk_anim_timer + (i * 0.6)) * 0.04
 			soldier.position.y = bounce
 			soldier.rotation.z = lerp_angle(soldier.rotation.z, tilt, 0.2)
 
@@ -168,33 +166,26 @@ func _shoot_barrage() -> void:
 				
 				var gun = soldier.get_node_or_null("Gun")
 				if gun:
-					gun.position.z = -0.15
+					gun.position.z = -0.12
 					var tween = gun.create_tween()
-					tween.tween_property(gun, "position:z", -0.28, 0.08)
+					tween.tween_property(gun, "position:z", -0.28, 0.12)
 
 func apply_gate_buff(type: Gate.GateType, value: float) -> void:
 	match type:
 		Gate.GateType.SOLDIER_ADD:
-			squad_size = clampi(squad_size + int(value), 1, 24)
+			var target_size = squad_size + int(value)
+			if target_size > max_squad_size:
+				var overflow = target_size - max_squad_size
+				damage_multiplier += overflow * 0.25 # 上限超過分は攻撃力アップに自動変換！
+				squad_size = max_squad_size
+			else:
+				squad_size = target_size
 			_rebuild_squad()
 		Gate.GateType.FIRE_RATE_MUL:
-			fire_rate = clampf(fire_rate * value, 1.0, 25.0)
+			fire_rate = clampf(fire_rate * value, 1.0, max_fire_rate)
 		Gate.GateType.DAMAGE_MUL:
 			damage_multiplier = clampf(damage_multiplier * value, 1.0, 15.0)
 			
-	squad_updated.emit(squad_size, fire_rate, damage_multiplier)
-
-func add_soldiers(count: int = 1) -> void:
-	squad_size = clampi(squad_size + count, 1, 24)
-	_rebuild_squad()
-	squad_updated.emit(squad_size, fire_rate, damage_multiplier)
-
-func upgrade_fire_rate(multiplier: float = 1.25) -> void:
-	fire_rate = clampf(fire_rate * multiplier, 1.0, 25.0)
-	squad_updated.emit(squad_size, fire_rate, damage_multiplier)
-
-func upgrade_damage(multiplier: float = 1.30) -> void:
-	damage_multiplier = clampf(damage_multiplier * multiplier, 1.0, 15.0)
 	squad_updated.emit(squad_size, fire_rate, damage_multiplier)
 
 func _rebuild_squad() -> void:
@@ -209,14 +200,15 @@ func _rebuild_squad() -> void:
 		container.name = "SquadContainer"
 		add_child(container)
 	
-	var max_per_row = 5
+	# 最大4人 x 2列のコンパクトで見やすい隊列
+	var max_per_row = 4
 	for i in range(squad_size):
 		var row = i / max_per_row
 		var col = i % max_per_row
 		var count_in_this_row = min(max_per_row, squad_size - (row * max_per_row))
 		
-		var x_offset = (col - (count_in_this_row - 1) * 0.5) * 0.75
-		var z_offset = row * 0.85
+		var x_offset = (col - (count_in_this_row - 1) * 0.5) * 0.85
+		var z_offset = row * 0.95
 		
 		var soldier = _create_soldier_mesh()
 		soldier.position = Vector3(x_offset, 0, z_offset)
@@ -230,7 +222,6 @@ func _rebuild_squad() -> void:
 func _create_soldier_mesh() -> Node3D:
 	var soldier_root = Node3D.new()
 	
-	# 1. インナースーツ
 	var suit_body = MeshInstance3D.new()
 	var suit_cap = CapsuleMesh.new()
 	suit_cap.radius = 0.2
@@ -240,7 +231,6 @@ func _create_soldier_mesh() -> Node3D:
 	suit_body.material_override = suit_mat
 	soldier_root.add_child(suit_body)
 	
-	# 2. タクティカル迷彩チェストアーマー (胸部装甲)
 	var armor_chest = MeshInstance3D.new()
 	var chest_box = BoxMesh.new()
 	chest_box.size = Vector3(0.46, 0.45, 0.36)
@@ -249,7 +239,6 @@ func _create_soldier_mesh() -> Node3D:
 	armor_chest.material_override = camo_armor_mat
 	soldier_root.add_child(armor_chest)
 	
-	# 3. 迷彩ショルダーパッド (肩部装甲)
 	for side in [-1, 1]:
 		var shoulder = MeshInstance3D.new()
 		var s_box = BoxMesh.new()
@@ -259,7 +248,6 @@ func _create_soldier_mesh() -> Node3D:
 		shoulder.material_override = camo_armor_mat
 		soldier_root.add_child(shoulder)
 	
-	# 4. 迷彩ヘルメット
 	var helmet = MeshInstance3D.new()
 	var helm_mesh = SphereMesh.new()
 	helm_mesh.radius = 0.24
@@ -269,7 +257,6 @@ func _create_soldier_mesh() -> Node3D:
 	helmet.material_override = camo_armor_mat
 	soldier_root.add_child(helmet)
 	
-	# 5. サイバー発光バイザー
 	var visor = MeshInstance3D.new()
 	var visor_box = BoxMesh.new()
 	visor_box.size = Vector3(0.32, 0.10, 0.14)
@@ -278,7 +265,6 @@ func _create_soldier_mesh() -> Node3D:
 	visor.material_override = visor_mat
 	soldier_root.add_child(visor)
 	
-	# 6. バックパック
 	var backpack = MeshInstance3D.new()
 	var pack_box = BoxMesh.new()
 	pack_box.size = Vector3(0.32, 0.4, 0.16)
@@ -295,7 +281,6 @@ func _create_soldier_mesh() -> Node3D:
 	energy_bar.material_override = glow_cyan_mat
 	soldier_root.add_child(energy_bar)
 	
-	# 7. アサルトライフル
 	var gun_root = Node3D.new()
 	gun_root.name = "Gun"
 	gun_root.position = Vector3(0.18, 0.75, -0.28)

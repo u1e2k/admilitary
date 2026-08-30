@@ -4,7 +4,6 @@ extends Node3D
 enum GameState {
 	TITLE_SCREEN,
 	PLAYING,
-	LEVEL_UP_SELECT,
 	PAUSED,
 	GAME_OVER,
 	VICTORY
@@ -22,16 +21,14 @@ var max_waves: int = 8
 # レベル＆経験値システム
 var current_level: int = 1
 var current_exp: int = 0
-var exp_to_next_level: int = 60
+var exp_to_next_level: int = 50
 
 var enemies_to_spawn: Array[Dictionary] = []
 var spawn_timer: float = 0.0
-var gate_spawn_timer: float = 0.0
 var is_wave_transitioning: bool = false
 
-# レベルアップ選択肢用
-var current_upgrade_options: Array[Dictionary] = []
-var selected_card_index: int = 0
+# ゲート用オブジェクトプール
+var gate_pool: Array[Gate] = []
 
 @onready var camera_3d: Camera3D = $Camera3D
 @onready var game_world: Node3D = $GameWorld
@@ -41,7 +38,8 @@ var selected_card_index: int = 0
 @onready var ui_layer: CanvasLayer = $UI
 @onready var hud: Control = $UI/HUD
 @onready var title_panel: Control = $UI/TitlePanel
-@onready var level_up_panel: Control = $UI/LevelUpPanel
+@onready var level_up_banner: Control = $UI/LevelUpBanner
+@onready var level_up_label: Label = $UI/LevelUpBanner/VBox/Title
 @onready var pause_panel: Control = $UI/PausePanel
 @onready var game_over_panel: Control = $UI/GameOverPanel
 @onready var victory_panel: Control = $UI/VictoryPanel
@@ -56,10 +54,7 @@ var selected_card_index: int = 0
 @onready var final_score_label: Label = $UI/GameOverPanel/VBox/FinalScore
 @onready var victory_score_label: Label = $UI/VictoryPanel/VBox/FinalScore
 
-@onready var cards_container: HBoxContainer = $UI/LevelUpPanel/VBox/CardsContainer
-
 func _ready() -> void:
-	# MainとUIはポーズ中も入力を処理
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if ui_layer:
 		ui_layer.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -67,10 +62,11 @@ func _ready() -> void:
 		game_world.process_mode = Node.PROCESS_MODE_PAUSABLE
 		
 	randomize()
-	Gate.init_cache() # ゲートのマテリアル・メッシュを事前初期化
+	Gate.init_cache()
 	_setup_environment_and_bridge()
 	_setup_ui()
-	_warmup_assets() # 初回シェーダーコンパイルによるフリーズを防止
+	_init_gate_pool()
+	_warmup_assets()
 	
 	if player:
 		player.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -80,20 +76,36 @@ func _ready() -> void:
 		
 	_show_title_screen()
 
-## 初回スポーン時のシェーダースタッター（一瞬のフリーズ）を完全に排除するウォームアップ
+func _init_gate_pool() -> void:
+	if not gate_scene or not game_world:
+		return
+		
+	for i in range(8):
+		var gate = gate_scene.instantiate() as Gate
+		game_world.add_child(gate)
+		gate.set_gate_data(i % 3 as Gate.GateType, 3.0)
+		gate.deactivate()
+		gate_pool.append(gate)
+
+func _get_free_gate_from_pool() -> Gate:
+	for gate in gate_pool:
+		if is_instance_valid(gate) and not gate.is_active:
+			return gate
+			
+	var new_gate = gate_scene.instantiate() as Gate
+	game_world.add_child(new_gate)
+	new_gate.deactivate()
+	gate_pool.append(new_gate)
+	return new_gate
+
 func _warmup_assets() -> void:
 	if not game_world:
 		return
 		
-	# 画面外に見えないようにダミーインスタンスを生成してGPUに事前コンパイルさせる
 	var warmup_root = Node3D.new()
 	warmup_root.position = Vector3(0, -200, 0)
 	game_world.add_child(warmup_root)
 	
-	if gate_scene:
-		var dummy_gate = gate_scene.instantiate() as Gate
-		warmup_root.add_child(dummy_gate)
-		dummy_gate.set_gate_data(Gate.GateType.SOLDIER_ADD, 3)
 	if enemy_scene:
 		var dummy_enemy = enemy_scene.instantiate() as Enemy
 		warmup_root.add_child(dummy_enemy)
@@ -101,7 +113,6 @@ func _warmup_assets() -> void:
 		var dummy_boss = boss_scene.instantiate() as Boss
 		warmup_root.add_child(dummy_boss)
 		
-	# 1フレーム後に安全に解放
 	var timer = get_tree().create_timer(0.1, false)
 	timer.timeout.connect(func():
 		if is_instance_valid(warmup_root):
@@ -114,7 +125,6 @@ func _setup_environment_and_bridge() -> void:
 	bridge_root.process_mode = Node.PROCESS_MODE_PAUSABLE
 	game_world.add_child(bridge_root)
 	
-	# 床
 	var floor_mesh = MeshInstance3D.new()
 	var box = BoxMesh.new()
 	box.size = Vector3(8.4, 1.0, 95.0)
@@ -127,7 +137,6 @@ func _setup_environment_and_bridge() -> void:
 	floor_mesh.material_override = floor_mat
 	bridge_root.add_child(floor_mesh)
 	
-	# サイドレール
 	for x_pos in [-4.2, 4.2]:
 		var rail = MeshInstance3D.new()
 		var rail_box = BoxMesh.new()
@@ -141,7 +150,6 @@ func _setup_environment_and_bridge() -> void:
 		rail.material_override = rail_mat
 		bridge_root.add_child(rail)
 	
-	# 道路白破線
 	for z_i in range(-65, 10, 6):
 		var stripe = MeshInstance3D.new()
 		var stripe_box = BoxMesh.new()
@@ -155,7 +163,6 @@ func _setup_environment_and_bridge() -> void:
 		stripe.material_override = stripe_mat
 		bridge_root.add_child(stripe)
 	
-	# 防衛ライン
 	var line_mesh = MeshInstance3D.new()
 	var line_box = BoxMesh.new()
 	line_box.size = Vector3(8.2, 0.05, 0.4)
@@ -180,7 +187,7 @@ func _setup_environment_and_bridge() -> void:
 func _setup_ui() -> void:
 	hud.visible = false
 	title_panel.visible = false
-	level_up_panel.visible = false
+	level_up_banner.visible = false
 	pause_panel.visible = false
 	game_over_panel.visible = false
 	victory_panel.visible = false
@@ -222,33 +229,21 @@ func _process(delta: float) -> void:
 				_restart_game()
 			return
 			
-		GameState.LEVEL_UP_SELECT:
-			_handle_level_up_input()
-			return
-			
 		GameState.GAME_OVER, GameState.VICTORY:
 			if Input.is_action_just_pressed("restart") or Input.is_action_just_pressed("ui_accept"):
 				_restart_game()
 			return
 
 	if not get_tree().paused and current_state == GameState.PLAYING:
-		# カメラ追従
 		if is_instance_valid(player) and camera_3d:
 			camera_3d.global_position.x = lerp(camera_3d.global_position.x, player.global_position.x * 0.45, delta * 6.0)
 			
-		# 敵スポーン
 		if enemies_to_spawn.size() > 0:
 			spawn_timer -= delta
 			if spawn_timer <= 0.0:
 				_spawn_next_enemy()
 				spawn_timer = randf_range(0.25, 0.55)
 				
-		# ゲートスポーン
-		gate_spawn_timer -= delta
-		if gate_spawn_timer <= 0.0:
-			_spawn_pair_gates()
-			gate_spawn_timer = randf_range(8.0, 12.0)
-			
 		_check_wave_cleared()
 
 func _toggle_pause() -> void:
@@ -268,7 +263,6 @@ func _toggle_pause() -> void:
 func _start_wave(wave_num: int) -> void:
 	current_wave = wave_num
 	is_wave_transitioning = false
-	gate_spawn_timer = 2.0
 	
 	if current_wave < max_waves:
 		wave_label.text = "WAVE %d / %d" % [current_wave, max_waves]
@@ -279,7 +273,7 @@ func _start_wave(wave_num: int) -> void:
 		wave_label.text = "FINAL WAVE - BOSS"
 		wave_label.modulate = Color(1.0, 0.2, 0.2)
 		enemies_to_spawn.clear()
-		_spawn_pair_gates(true)
+		_spawn_pair_gates(true) # ボス前ボーナスゲート
 		
 		var timer = get_tree().create_timer(2.0, false)
 		timer.timeout.connect(_spawn_boss)
@@ -289,35 +283,35 @@ func _build_wave_queue(wave: int) -> void:
 	var mult = 1.0 + (wave * 0.2)
 	
 	match wave:
-		1: # Walker 10体
+		1:
 			for i in range(10):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.WALKER, "mult": mult})
-		2: # Walker 8 + Runner 6
+		2:
 			for i in range(8):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.WALKER, "mult": mult})
 			for i in range(6):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.RUNNER, "mult": mult})
-		3: # Runnerラッシュ 16体
+		3:
 			for i in range(16):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.RUNNER, "mult": mult})
-		4: # Walker 10 + Tank 3
+		4:
 			for i in range(10):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.WALKER, "mult": mult})
 			for i in range(3):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.TANK, "mult": mult})
-		5: # 複合部隊
+		5:
 			for i in range(12):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.WALKER, "mult": mult})
 			for i in range(10):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.RUNNER, "mult": mult})
 			for i in range(4):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.TANK, "mult": mult})
-		6: # 高速大群
+		6:
 			for i in range(22):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.RUNNER, "mult": mult})
 			for i in range(5):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.TANK, "mult": mult})
-		7: # 重装軍団
+		7:
 			for i in range(15):
 				enemies_to_spawn.append({"type": Enemy.EnemyType.WALKER, "mult": mult})
 			for i in range(15):
@@ -327,33 +321,29 @@ func _build_wave_queue(wave: int) -> void:
 				
 	enemies_to_spawn.shuffle()
 
-func _spawn_pair_gates(is_boss: bool = false) -> void:
-	if not gate_scene:
-		return
-		
+## 二者択一排他ペアゲートのスポーン（レベルアップ時＆ボス前のみ）
+func _spawn_pair_gates(is_boss: bool = false, is_level_up: bool = false) -> void:
 	var gate_types = [Gate.GateType.SOLDIER_ADD, Gate.GateType.FIRE_RATE_MUL, Gate.GateType.DAMAGE_MUL]
 	gate_types.shuffle()
 	
-	var gate_left = gate_scene.instantiate() as Gate
-	gate_left.process_mode = Node.PROCESS_MODE_PAUSABLE
-	game_world.add_child(gate_left)
-	gate_left.global_position = Vector3(-2.0, 0, -32.0)
-	_configure_gate(gate_left, gate_types[0], is_boss)
+	var gate_left = _get_free_gate_from_pool()
+	var gate_right = _get_free_gate_from_pool()
 	
-	var gate_right = gate_scene.instantiate() as Gate
-	gate_right.process_mode = Node.PROCESS_MODE_PAUSABLE
-	game_world.add_child(gate_right)
-	gate_right.global_position = Vector3(2.0, 0, -32.0)
-	_configure_gate(gate_right, gate_types[1], is_boss)
-
-func _configure_gate(gate: Gate, type: Gate.GateType, is_boss: bool) -> void:
-	match type:
-		Gate.GateType.SOLDIER_ADD:
-			gate.set_gate_data(type, 3 if not is_boss else 5)
-		Gate.GateType.FIRE_RATE_MUL:
-			gate.set_gate_data(type, 1.35 if not is_boss else 1.8)
-		Gate.GateType.DAMAGE_MUL:
-			gate.set_gate_data(type, 1.4 if not is_boss else 2.0)
+	var val_left = (2.0 if is_level_up else 1.0) if not is_boss else 3.0
+	if gate_types[0] == Gate.GateType.FIRE_RATE_MUL:
+		val_left = (1.25 if is_level_up else 1.15) if not is_boss else 1.35
+	elif gate_types[0] == Gate.GateType.DAMAGE_MUL:
+		val_left = (1.5 if is_level_up else 1.35) if not is_boss else 1.8
+		
+	var val_right = (2.0 if is_level_up else 1.0) if not is_boss else 3.0
+	if gate_types[1] == Gate.GateType.FIRE_RATE_MUL:
+		val_right = (1.25 if is_level_up else 1.15) if not is_boss else 1.35
+	elif gate_types[1] == Gate.GateType.DAMAGE_MUL:
+		val_right = (1.5 if is_level_up else 1.35) if not is_boss else 1.8
+	
+	# 幅を適正化し、相互リンクを設定（片方を取るともう片方が即消滅）
+	gate_left.activate(gate_types[0], val_left, Vector3(-2.2, 0, -35.0), gate_right)
+	gate_right.activate(gate_types[1], val_right, Vector3(2.2, 0, -35.0), gate_left)
 
 func _spawn_next_enemy() -> void:
 	if not enemy_scene or enemies_to_spawn.is_empty():
@@ -412,6 +402,7 @@ func _check_wave_cleared() -> void:
 					_start_wave(current_wave + 1)
 			)
 
+# EXP & レベルアップ (敵を倒してレベルアップした時のみ報酬ゲートをポップ！)
 func _add_exp(amount: int) -> void:
 	current_exp += amount
 	if current_exp >= exp_to_next_level:
@@ -427,125 +418,24 @@ func _update_exp_ui() -> void:
 	exp_bar.value = current_exp
 
 func _trigger_level_up() -> void:
-	current_state = GameState.LEVEL_UP_SELECT
-	get_tree().paused = true # GameWorld配下の全オブジェクトが確実に完全停止！
+	_spawn_pair_gates(false, true)
 	
-	if player:
-		player.is_control_active = false
-		
-	_generate_level_up_options()
-	_display_level_up_cards()
+	level_up_label.text = "★ LEVEL UP! (LV %d) REWARD GATES INCOMING ★" % current_level
+	level_up_banner.visible = true
+	level_up_banner.modulate.a = 0.0
+	level_up_banner.scale = Vector2(0.85, 0.85)
 	
-	level_up_panel.visible = true
-	level_up_panel.modulate.a = 1.0
-
-func _generate_level_up_options() -> void:
-	current_upgrade_options.clear()
-	selected_card_index = 0
+	var tween = create_tween().set_parallel(true)
+	tween.tween_property(level_up_banner, "modulate:a", 1.0, 0.2)
+	tween.tween_property(level_up_banner, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	
-	var pool = [
-		{"type": "SOLDIER_1", "title": "+1 SOLDIER", "desc": "部隊に兵士を1体増員\n弾幕の幅が広がる", "color": Color(0.2, 0.8, 1.0)},
-		{"type": "FIRE_RATE", "title": "+25% FIRE RATE", "desc": "マシンガン連射速度UP\n制圧力アップ", "color": Color(1.0, 0.85, 0.2)},
-		{"type": "DAMAGE", "title": "+30% DAMAGE", "desc": "弾丸の単発威力を強化\n敵を素早く撃破", "color": Color(1.0, 0.3, 0.3)},
-		{"type": "SOLDIER_2", "title": "+2 SOLDIERS", "desc": "部隊に兵士を2体一括増員\n一気に火力を増強", "color": Color(0.4, 1.0, 0.6)},
-		{"type": "OVERDRIVE", "title": "OVERDRIVE", "desc": "連射速度 +15%\n攻撃力 +15%", "color": Color(0.9, 0.4, 1.0)}
-	]
-	pool.shuffle()
-	current_upgrade_options.append(pool[0])
-	current_upgrade_options.append(pool[1])
-	current_upgrade_options.append(pool[2])
-
-func _display_level_up_cards() -> void:
-	for child in cards_container.get_children():
-		child.queue_free()
-		
-	for i in range(current_upgrade_options.size()):
-		var opt = current_upgrade_options[i]
-		var card = PanelContainer.new()
-		card.custom_minimum_size = Vector2(200, 260)
-		
-		var vbox = VBoxContainer.new()
-		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		vbox.theme_override_constants.separation = 12
-		card.add_child(vbox)
-		
-		var key_label = Label.new()
-		key_label.text = "[ %d / %s ]" % [i + 1, "A" if i == 0 else ("B" if i == 1 else "X")]
-		key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		key_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9))
-		vbox.add_child(key_label)
-		
-		var title = Label.new()
-		title.text = opt["title"]
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		title.add_theme_color_override("font_color", opt["color"])
-		title.add_theme_font_size_override("font_size", 18)
-		vbox.add_child(title)
-		
-		var desc = Label.new()
-		desc.text = opt["desc"]
-		desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		desc.add_theme_font_size_override("font_size", 13)
-		vbox.add_child(desc)
-		
-		cards_container.add_child(card)
-	
-	_highlight_selected_card()
-
-func _highlight_selected_card() -> void:
-	var children = cards_container.get_children()
-	for i in range(children.size()):
-		var card = children[i] as PanelContainer
-		if i == selected_card_index:
-			card.modulate = Color(1.2, 1.2, 1.2, 1.0)
-		else:
-			card.modulate = Color(0.65, 0.65, 0.65, 0.85)
-
-func _handle_level_up_input() -> void:
-	if Input.is_action_just_pressed("move_left"):
-		selected_card_index = posmod(selected_card_index - 1, 3)
-		_highlight_selected_card()
-	elif Input.is_action_just_pressed("move_right"):
-		selected_card_index = posmod(selected_card_index + 1, 3)
-		_highlight_selected_card()
-	elif Input.is_action_just_pressed("ui_accept"):
-		_apply_upgrade_choice(selected_card_index)
-	elif Input.is_action_just_pressed("ui_select_1"):
-		_apply_upgrade_choice(0)
-	elif Input.is_action_just_pressed("ui_select_2"):
-		_apply_upgrade_choice(1)
-	elif Input.is_action_just_pressed("ui_select_3"):
-		_apply_upgrade_choice(2)
-
-func _apply_upgrade_choice(idx: int) -> void:
-	if idx < 0 or idx >= current_upgrade_options.size():
-		return
-		
-	var opt = current_upgrade_options[idx]
-	match opt["type"]:
-		"SOLDIER_1":
-			player.add_soldiers(1)
-		"SOLDIER_2":
-			player.add_soldiers(2)
-		"FIRE_RATE":
-			player.upgrade_fire_rate(1.25)
-		"DAMAGE":
-			player.upgrade_damage(1.30)
-		"OVERDRIVE":
-			player.upgrade_fire_rate(1.15)
-			player.upgrade_damage(1.15)
-			
-	level_up_panel.visible = false
-	current_state = GameState.PLAYING
-	get_tree().paused = false # ゲーム再開！
-	
-	if player:
-		player.is_control_active = true
-		
-	_check_wave_cleared()
+	var hide_tween = create_tween()
+	hide_tween.tween_interval(2.2)
+	hide_tween.tween_property(level_up_banner, "modulate:a", 0.0, 0.5)
+	hide_tween.tween_callback(func(): level_up_banner.visible = false)
 
 func _on_defense_breached(_target: Node3D) -> void:
-	if current_state != GameState.PLAYING and current_state != GameState.LEVEL_UP_SELECT:
+	if current_state != GameState.PLAYING:
 		return
 	_trigger_game_over()
 
