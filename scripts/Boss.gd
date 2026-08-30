@@ -24,6 +24,7 @@ func _ready() -> void:
 	# Layer 2 (Enemy), Mask 1 (Player) | 8 (PlayerBullet)
 	collision_layer = 2
 	collision_mask = 1 | 8
+	add_to_group("enemies")
 	
 	current_hp = max_hp
 	_setup_visuals()

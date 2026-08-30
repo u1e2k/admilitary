@@ -9,6 +9,7 @@ enum GateType {
 
 @export var gate_type: GateType = GateType.SOLDIER_ADD
 @export var value: float = 3.0
+@export var move_speed: float = 3.8 # 奥から手前へ前進する速度
 
 var is_collected: bool = false
 var base_color: Color = Color(0.1, 0.8, 1.0)
@@ -35,7 +36,7 @@ func _setup_visuals() -> void:
 		GateType.SOLDIER_ADD:
 			base_color = Color(0.1, 0.7, 1.0) # シアン/ブルー
 		GateType.FIRE_RATE_MUL:
-			base_color = Color(1.0, 0.8, 0.1) # ゴールド/イエロー
+			base_color = Color(1.0, 0.85, 0.1) # ゴールド/イエロー
 		GateType.DAMAGE_MUL:
 			base_color = Color(1.0, 0.2, 0.4) # ネオンピンク/レッド
 
@@ -46,16 +47,16 @@ func _setup_visuals() -> void:
 		add_child(frame_inst)
 		
 	var box = BoxMesh.new()
-	box.size = Vector3(3.8, 3.2, 0.3)
+	box.size = Vector3(3.2, 3.0, 0.25)
 	frame_inst.mesh = box
-	frame_inst.position = Vector3(0, 1.6, 0)
+	frame_inst.position = Vector3(0, 1.5, 0)
 	
 	var mat = StandardMaterial3D.new()
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.albedo_color = Color(base_color.r, base_color.g, base_color.b, 0.45)
 	mat.emission_enabled = true
 	mat.emission = base_color
-	mat.emission_energy_multiplier = 2.0
+	mat.emission_energy_multiplier = 2.2
 	frame_inst.material_override = mat
 
 func _update_label() -> void:
@@ -63,10 +64,9 @@ func _update_label() -> void:
 		label_3d = Label3D.new()
 		label_3d.name = "Label3D"
 		add_child(label_3d)
-		label_3d.position = Vector3(0, 1.7, 0.2)
-		label_3d.rotation_degrees = Vector3.ZERO # 正面手前を向く
+		label_3d.position = Vector3(0, 1.6, 0.18)
 		label_3d.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		label_3d.font_size = 48
+		label_3d.font_size = 46
 		label_3d.outline_size = 12
 		label_3d.modulate = Color.WHITE
 		label_3d.outline_modulate = Color.BLACK
@@ -79,9 +79,19 @@ func _update_label() -> void:
 		GateType.DAMAGE_MUL:
 			label_3d.text = "+%d%%\nDMG UP" % int((value - 1.0) * 100.0)
 
-func _process(delta: float) -> void:
-	if not is_collected:
-		position.y = sin(Time.get_ticks_msec() * 0.004) * 0.12
+func _physics_process(delta: float) -> void:
+	if is_collected:
+		return
+		
+	# 奥から手前 (+Z) へ前進移動
+	global_position.z += move_speed * delta
+	
+	# 微妙な上下浮遊アニメーション
+	position.y = sin(Time.get_ticks_msec() * 0.005) * 0.1
+	
+	# 手前を通り過ぎたら消滅
+	if global_position.z > 14.0:
+		queue_free()
 
 func _on_body_entered(body: Node3D) -> void:
 	if is_collected:
@@ -92,9 +102,9 @@ func _on_body_entered(body: Node3D) -> void:
 		body.apply_gate_buff(gate_type, value)
 		
 		# 獲得エフェクト
-		ParticleHelper.spawn_shatter_blocks(get_tree(), global_position + Vector3(0, 1.5, 0), base_color, 12, 0.35)
+		ParticleHelper.spawn_shatter_blocks(get_tree(), global_position + Vector3(0, 1.5, 0), base_color, 14, 0.35)
 		
 		var tween = create_tween().set_parallel(true)
-		tween.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4), 0.25)
-		tween.tween_property(self, "modulate:a", 0.0, 0.25)
+		tween.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4), 0.2)
+		tween.tween_property(self, "modulate:a", 0.0, 0.2)
 		tween.chain().tween_callback(queue_free)
