@@ -1,13 +1,14 @@
 class_name Boss
 extends CharacterBody3D
 
-signal boss_defeated(score_val: int)
+signal boss_defeated(score_val: int, exp_val: int)
 signal breached_defense(boss: Node3D)
 
 @export var max_hp: float = 650.0
 @export var current_hp: float = 650.0
 @export var move_speed: float = 1.3
 @export var score_reward: int = 2500
+@export var exp_reward: int = 200
 @export var breach_z_threshold: float = 10.5
 
 var knockback_velocity: Vector3 = Vector3.ZERO
@@ -179,7 +180,7 @@ func _restore_materials() -> void:
 
 func die() -> void:
 	is_dead = true
-	boss_defeated.emit(score_reward)
+	boss_defeated.emit(score_reward, exp_reward)
 	
 	for i in range(4):
 		var offset = Vector3(randf_range(-1, 1), randf_range(0.5, 3.0), randf_range(-1, 1))

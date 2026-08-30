@@ -109,6 +109,36 @@ theme_override_colors/font_color = Color(0.7, 0.85, 1, 0.8)
 theme_override_font_sizes/font_size = 16
 text = "ROF: 4.0/s | DMG: x1.0"
 
+[node name="LevelLabel" type="Label" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -160.0
+offset_top = 80.0
+offset_right = -28.0
+offset_bottom = 118.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(0.4, 1, 0.6, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 24
+text = "LV 1"
+horizontal_alignment = 2
+
+[node name="ExpBar" type="ProgressBar" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -220.0
+offset_top = 122.0
+offset_right = -28.0
+offset_bottom = 138.0
+grow_horizontal = 0
+show_percentage = false
+
 [node name="ControlsGuide" type="Label" parent="UI/HUD"]
 layout_mode = 1
 anchors_preset = 7
@@ -123,8 +153,162 @@ offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_colors/font_color = Color(0.6, 0.75, 0.9, 0.8)
+theme_override_font_sizes/font_size = 15
+text = "[MOVE: Left Stick / A,D]  [AUTO SHOOT]  [START/ESC: PAUSE]"
+horizontal_alignment = 1
+
+[node name="TitlePanel" type="Panel" parent="UI"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/TitlePanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -240.0
+offset_right = 320.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 28
+alignment = 1
+
+[node name="MainTitle" type="Label" parent="UI/TitlePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.1, 0.8, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 54
+text = "ADMILITARY"
+horizontal_alignment = 1
+
+[node name="SubTitle" type="Label" parent="UI/TitlePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 0.9)
+theme_override_font_sizes/font_size = 18
+text = "3D SQUAD DEFENSE PROTO"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="UI/TitlePanel/VBox"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+
+[node name="StartGuide" type="Label" parent="UI/TitlePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.2, 1)
+theme_override_font_sizes/font_size = 24
+text = "PRESS [A BUTTON] OR [SPACE] TO START"
+horizontal_alignment = 1
+
+[node name="KeyGuide" type="Label" parent="UI/TitlePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.7, 0.85, 0.8)
 theme_override_font_sizes/font_size = 16
-text = "[MOVE: Left Stick / D-Pad / A,D]  [AUTO SHOOT]"
+text = "Controls: Left Stick / D-Pad / A,D to Move
+Shooting is Fully Automated"
+horizontal_alignment = 1
+
+[node name="LevelUpPanel" type="Panel" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/LevelUpPanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -340.0
+offset_top = -240.0
+offset_right = 340.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Title" type="Label" parent="UI/LevelUpPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
+theme_override_font_sizes/font_size = 38
+text = "LEVEL UP!"
+horizontal_alignment = 1
+
+[node name="SubTitle" type="Label" parent="UI/LevelUpPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.9, 1, 0.9)
+theme_override_font_sizes/font_size = 16
+text = "Choose Your Squad Upgrade"
+horizontal_alignment = 1
+
+[node name="CardsContainer" type="HBoxContainer" parent="UI/LevelUpPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="SelectGuide" type="Label" parent="UI/LevelUpPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.75, 0.9, 0.8)
+theme_override_font_sizes/font_size = 15
+text = "[ D-PAD / STICK: SELECT ]  [ A BUTTON: CONFIRM ]"
+horizontal_alignment = 1
+
+[node name="PausePanel" type="Panel" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/PausePanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -160.0
+offset_right = 280.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Title" type="Label" parent="UI/PausePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 40
+text = "GAME PAUSED"
+horizontal_alignment = 1
+
+[node name="ResumeGuide" type="Label" parent="UI/PausePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.2, 1)
+theme_override_font_sizes/font_size = 22
+text = "Press [START / A / ESC] to Resume"
+horizontal_alignment = 1
+
+[node name="RestartGuide" type="Label" parent="UI/PausePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 0.8)
+theme_override_font_sizes/font_size = 16
+text = "Press [SELECT / SPACE] to Restart Game"
 horizontal_alignment = 1
 
 [node name="GameOverPanel" type="Panel" parent="UI"]

@@ -3,9 +3,10 @@ extends CharacterBody3D
 
 signal squad_updated(new_size: int, fire_rate: float, damage_mult: float)
 
-@export var move_speed: float = 12.0
-@export var acceleration: float = 40.0
-@export var friction: float = 35.0
+# 左右移動感度調整（マイルドで制御しやすい速度）
+@export var move_speed: float = 7.8
+@export var acceleration: float = 26.0
+@export var friction: float = 30.0
 
 # 橋の左右移動範囲
 @export var min_x: float = -3.2
@@ -21,6 +22,7 @@ var bullet_scene: PackedScene = preload("res://scenes/Bullet.tscn")
 
 var shoot_cooldown: float = 0.0
 var soldier_mesh_instances: Array[Node3D] = []
+var is_control_active: bool = true
 
 var soldier_base_mat: StandardMaterial3D
 var visor_mat: StandardMaterial3D
@@ -35,7 +37,7 @@ func _ready() -> void:
 
 func _init_materials() -> void:
 	soldier_base_mat = StandardMaterial3D.new()
-	soldier_base_mat.albedo_color = Color(0.12, 0.45, 0.95) # 鮮明なミリタリーブルー
+	soldier_base_mat.albedo_color = Color(0.12, 0.45, 0.95)
 	soldier_base_mat.metallic = 0.3
 	soldier_base_mat.roughness = 0.5
 	
@@ -46,6 +48,9 @@ func _init_materials() -> void:
 	visor_mat.emission_energy_multiplier = 2.5
 
 func _physics_process(delta: float) -> void:
+	if not is_control_active:
+		return
+		
 	# 入力処理 (左右移動)
 	var input_x = Input.get_axis("move_left", "move_right")
 	
@@ -59,10 +64,9 @@ func _physics_process(delta: float) -> void:
 	
 	move_and_slide()
 	
-	# 移動範囲の制限 (左右X軸)
+	# 移動範囲の制限
 	global_position.x = clampf(global_position.x, min_x, max_x)
 	global_position.y = 0.0
-	# Z位置は手前固定 (8.0)
 	global_position.z = 8.0
 	
 	# オート射撃処理
@@ -72,7 +76,7 @@ func _physics_process(delta: float) -> void:
 		shoot_cooldown = 1.0 / maxf(fire_rate, 0.5)
 
 func _shoot_barrage() -> void:
-	if not bullet_scene:
+	if not bullet_scene or not is_control_active:
 		return
 		
 	var tree = get_tree()
@@ -81,7 +85,6 @@ func _shoot_barrage() -> void:
 		
 	var scene_root = tree.current_scene
 	
-	# 小隊全員のマズル位置から奥（-Z方向）へ一斉発射
 	for soldier in soldier_mesh_instances:
 		if is_instance_valid(soldier):
 			var bullet = bullet_scene.instantiate() as Bullet
@@ -89,7 +92,7 @@ func _shoot_barrage() -> void:
 				scene_root.add_child(bullet)
 				bullet.global_position = soldier.global_position + Vector3(0.0, 0.8, -0.6)
 				bullet.damage = base_damage * damage_multiplier
-				bullet.direction = Vector3.FORWARD # 奥へ直進
+				bullet.direction = Vector3.FORWARD
 
 func apply_gate_buff(type: Gate.GateType, value: float) -> void:
 	match type:
@@ -101,6 +104,20 @@ func apply_gate_buff(type: Gate.GateType, value: float) -> void:
 		Gate.GateType.DAMAGE_MUL:
 			damage_multiplier = clampf(damage_multiplier * value, 1.0, 10.0)
 			
+	squad_updated.emit(squad_size, fire_rate, damage_multiplier)
+
+# レベルアップ強化用メソッド
+func add_soldiers(count: int = 1) -> void:
+	squad_size = clampi(squad_size + count, 1, 24)
+	_rebuild_squad()
+	squad_updated.emit(squad_size, fire_rate, damage_multiplier)
+
+func upgrade_fire_rate(multiplier: float = 1.25) -> void:
+	fire_rate = clampf(fire_rate * multiplier, 1.0, 25.0)
+	squad_updated.emit(squad_size, fire_rate, damage_multiplier)
+
+func upgrade_damage(multiplier: float = 1.30) -> void:
+	damage_multiplier = clampf(damage_multiplier * multiplier, 1.0, 15.0)
 	squad_updated.emit(squad_size, fire_rate, damage_multiplier)
 
 func _rebuild_squad() -> void:
@@ -115,16 +132,13 @@ func _rebuild_squad() -> void:
 		container.name = "SquadContainer"
 		add_child(container)
 	
-	# 隊列の計算 (X軸に横並び、人数が多い場合は+Z手前側・後方に列を追加)
 	var max_per_row = 5
 	for i in range(squad_size):
 		var row = i / max_per_row
 		var col = i % max_per_row
 		var count_in_this_row = min(max_per_row, squad_size - (row * max_per_row))
 		
-		# X方向の中央揃えオフセット
 		var x_offset = (col - (count_in_this_row - 1) * 0.5) * 0.75
-		# Z方向の後方オフセット（手前側）
 		var z_offset = row * 0.85
 		
 		var soldier = _create_soldier_mesh()
@@ -139,7 +153,6 @@ func _rebuild_squad() -> void:
 func _create_soldier_mesh() -> Node3D:
 	var soldier_root = Node3D.new()
 	
-	# 身体 (CapsuleMesh)
 	var body = MeshInstance3D.new()
 	var cap = CapsuleMesh.new()
 	cap.radius = 0.25
@@ -149,7 +162,6 @@ func _create_soldier_mesh() -> Node3D:
 	body.material_override = soldier_base_mat
 	soldier_root.add_child(body)
 	
-	# バイザー / 発光ゴーグル (奥 -Z 方向を向く)
 	var visor = MeshInstance3D.new()
 	var box = BoxMesh.new()
 	box.size = Vector3(0.32, 0.12, 0.15)
@@ -158,7 +170,6 @@ func _create_soldier_mesh() -> Node3D:
 	visor.material_override = visor_mat
 	soldier_root.add_child(visor)
 	
-	# 銃 (奥 -Z 方向を向く)
 	var gun = MeshInstance3D.new()
 	var gun_box = BoxMesh.new()
 	gun_box.size = Vector3(0.12, 0.12, 0.55)

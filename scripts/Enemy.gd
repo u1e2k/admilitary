@@ -1,13 +1,14 @@
 class_name Enemy
 extends CharacterBody3D
 
-signal enemy_defeated(score_val: int)
+signal enemy_defeated(score_val: int, exp_val: int)
 signal breached_defense(enemy: Node3D)
 
 @export var max_hp: float = 30.0
 @export var current_hp: float = 30.0
 @export var move_speed: float = 2.6
 @export var score_reward: int = 100
+@export var exp_reward: int = 15
 @export var breach_z_threshold: float = 10.5
 
 var knockback_velocity: Vector3 = Vector3.ZERO
@@ -129,6 +130,6 @@ func _flash_effect() -> void:
 
 func die() -> void:
 	is_dead = true
-	enemy_defeated.emit(score_reward)
+	enemy_defeated.emit(score_reward, exp_reward)
 	ParticleHelper.spawn_shatter_blocks(get_tree(), global_position + Vector3(0, 0.8, 0), Color(0.9, 0.2, 0.2), 8, 0.28)
 	queue_free()
